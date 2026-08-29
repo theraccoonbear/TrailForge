@@ -253,3 +253,65 @@ export function buildSpline({ wps, closed, stepsPerSeg = 32 }: SplineParams): Sp
   }
   return samples
 }
+
+// ── Parameter-fraction ↔ arc-length-fraction conversion ─────────────────
+// Catmull-Rom parameter fraction (animT / nSegs) does NOT advance at constant
+// arc-length rate on unevenly-spaced waypoints — a long chord "eats" more
+// parameter range per unit distance than a short one. Anything keyed to
+// arc-length fraction (craftRollSegments' t, the behaviors ruler) MUST go
+// through paramToArc() before being compared against animFrac, or it drifts
+// out of sync with the visual position by however uneven the spacing is.
+export interface ArcTable {
+  paramToArc(pf: number): number   // parameter fraction [0..1] → arc-length fraction [0..1]
+  arcToParam(af: number): number   // arc-length fraction [0..1] → parameter fraction [0..1]
+}
+
+const IDENTITY_ARC: ArcTable = { paramToArc: p => p, arcToParam: a => a }
+
+export function makeArcTable(wps: Waypoint[], closed: boolean): ArcTable {
+  if (wps.length < 2) return IDENTITY_ARC
+
+  const samples = buildSpline({ wps, closed })
+  if (samples.length < 2) return IDENTITY_ARC
+
+  // Cumulative arc lengths and matching parameter fractions for each sample
+  // SplineSample.frac is rawAt[i]/nSegs — already parameter fraction [0..1]
+  const paramFracs: number[] = [samples[0].frac]
+  const cumArc: number[]     = [0]
+  for (let i = 1; i < samples.length; i++) {
+    const s = samples[i], p = samples[i - 1]
+    const dx = s.wire.x - p.wire.x, dy = s.wire.y - p.wire.y, dz = s.wire.z - p.wire.z
+    cumArc.push(cumArc[i - 1] + Math.sqrt(dx * dx + dy * dy + dz * dz))
+    paramFracs.push(s.frac)
+  }
+  const totalArc = cumArc[cumArc.length - 1]
+  if (totalArc === 0) return IDENTITY_ARC
+
+  // Largest index where arr[i] <= val
+  function lb(arr: number[], val: number): number {
+    let lo = 0, hi = arr.length - 1
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (arr[mid] <= val) lo = mid; else hi = mid - 1 }
+    return lo
+  }
+
+  function paramToArc(pf: number): number {
+    pf = Math.max(0, Math.min(1, pf))
+    const i = lb(paramFracs, pf)
+    if (i >= paramFracs.length - 1) return 1
+    const span = paramFracs[i + 1] - paramFracs[i]
+    const t    = span < 1e-10 ? 0 : (pf - paramFracs[i]) / span
+    return (cumArc[i] + t * (cumArc[i + 1] - cumArc[i])) / totalArc
+  }
+
+  function arcToParam(af: number): number {
+    af = Math.max(0, Math.min(1, af))
+    const arcVal = af * totalArc
+    const i = lb(cumArc, arcVal)
+    if (i >= cumArc.length - 1) return 1
+    const span = cumArc[i + 1] - cumArc[i]
+    const t    = span < 1e-10 ? 0 : (arcVal - cumArc[i]) / span
+    return paramFracs[i] + t * (paramFracs[i + 1] - paramFracs[i])
+  }
+
+  return { paramToArc, arcToParam }
+}

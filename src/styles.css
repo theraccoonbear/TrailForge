@@ -636,6 +636,32 @@ textarea.import-area:focus { border-color: var(--path); }
 .bpanel-ruler-lspacer,
 .bpanel-ruler-rspacer { /* intentionally empty — size comes from grid */ }
 
+.bpanel-ruler-numbers-row {
+  height: 10px;
+}
+
+.bpanel-ruler-numbers {
+  position: relative;
+  height: 100%;
+}
+
+.bpanel-ruler-num {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-family: var(--font-mono);
+  line-height: 10px;
+  color: #555560;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.bpanel-ruler-num.sel {
+  color: #fbbf24;
+}
+
 .bpanel-ruler-bar {
   flex: 1;
   position: relative;
@@ -811,31 +837,6 @@ textarea.import-area:focus { border-color: var(--path); }
   user-select: none;
 }
 
-.bpanel-trigger-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 18px;
-  font-size: 11px;
-  font-family: var(--font-mono);
-}
-
-.bpanel-trigger-t {
-  width: 40px;
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-.bpanel-trigger-type {
-  color: var(--text-dim);
-  width: 80px;
-  flex-shrink: 0;
-}
-
-.bpanel-trigger-val {
-  color: var(--text);
-}
-
 /* ── Empty state ─────────────────────────────────────────────────────────── */
 .bpanel-empty {
   font-size: 11px;
@@ -941,24 +942,6 @@ textarea.import-area:focus { border-color: var(--path); }
   gap: 4px;
   overflow: hidden;
 }
-
-/* Trigger group */
-.bpanel-trigger-group { display: flex; flex-direction: column; border-radius: 3px; }
-.bpanel-trigger-group.hovered { background: rgba(255,255,255,0.05); }
-
-.bpanel-trigger-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 20px;
-  font-size: 11px;
-  font-family: var(--font-mono);
-  cursor: pointer;
-  border-radius: 3px;
-  padding: 0 2px;
-}
-.bpanel-trigger-row:hover { background: var(--surface); }
-.bpanel-trigger-row.selected { background: var(--surface); }
 
 /* Keyframe diamond — hover + selected states (adds touch-action and hover from Phase 3) */
 .bpanel-kf-diamond { touch-action: none; }
@@ -1096,11 +1079,10 @@ textarea.import-area:focus { border-color: var(--path); }
   user-select: none;
 }
 
-/* Range slider — trigger position scrubber */
-.bp-range {
-  flex: 1;
-  min-width: 60px;
-  accent-color: var(--accent);
+/* Trigger position scrubber — reuses .bpanel-track-bar so its diamond sits at the
+   same pixel x as the marker on the compact row above (both `left: t*100%`). */
+.bpanel-pos-scrub {
+  margin: 3px 0;
   cursor: pointer;
 }
 

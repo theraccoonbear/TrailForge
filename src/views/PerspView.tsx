@@ -2,12 +2,12 @@
 // Waypoints are selectable via click; use ortho views to move nodes.
 // Follow mode: camera trails the ship; scroll adjusts distance.
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { useStore } from '../store'
 import { camPrefs, saveCamPrefs } from '../prefs'
-import { buildSpline, evalAt, tangentAt, shipFacing, makeFrame, frustumAtX } from '../math/spline'
+import { buildSpline, evalAt, tangentAt, shipFacing, makeFrame, frustumAtX, makeArcTable } from '../math/spline'
 import { getFrameAt } from '../math/frameCache'
 import { evalCraftRoll } from '../math/craftRoll'
 import {
@@ -282,6 +282,10 @@ export function PerspView() {
 
   const { path, selected, playing, animT, frameR, frameU, showOverlays, debugLog, mutedTracks } = useStore()
 
+  // craftRollSegments' t is arc-length fraction; animT is parameter-space — must convert
+  // or roll timing drifts against the visual position. See math/spline.ts makeArcTable.
+  const arcTable = useMemo(() => makeArcTable(path.wps, path.closed), [path])
+
 
   // ── Init ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -540,7 +544,7 @@ export function PerspView() {
     const wire         = evalAt(path.wps, animT, path.closed)
     const tan          = tangentAt(path.wps, animT, path.closed)
     const crSegs       = mutedTracks['craftRoll'] ? [] : (path.craftRollSegments ?? [])
-    const craftRollDeg = evalCraftRoll(crSegs, animFrac, path.craftRollLoopSeam)
+    const craftRollDeg = evalCraftRoll(crSegs, arcTable.paramToArc(animFrac), path.craftRollLoopSeam)
     const facing       = shipFacing(wire, tan, path.orient, path.target)
     // Frame selection:
     // • target mode: makeFrame(facing) — tangent ≠ facing, transport frame is wrong axis.
@@ -602,7 +606,7 @@ export function PerspView() {
 
     void nSegs
     refs.kick()
-  }, [animT, playing, path, frameR, frameU, debugLog, mutedTracks])
+  }, [animT, playing, path, arcTable, frameR, frameU, debugLog, mutedTracks])
 
   // ── Camera mode cycle: orbit → follow → ingame → orbit ───────────────
   const cycleCamera = useCallback(() => {
